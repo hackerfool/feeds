@@ -37,10 +37,6 @@ var (
 	mysqlDB   *sql.DB
 )
 
-var (
-	u = user{userID: "chat_room"}
-)
-
 func serveHome(w http.ResponseWriter, r *http.Request) {
 	log.Println(r.URL)
 	if r.URL.Path != "/" {
@@ -120,9 +116,8 @@ loop:
 		select {
 		case <-ticker.C:
 			mysqlDB.Ping()
-		case msg := <-roomQ[0].Messages():
-			u.Post(string(msg.Value))
-			hub.broadcast <- msg.Value
+		// case msg := <-roomQ[0].Messages():
+		// 	hub.broadcast <- msg.Value
 		case <-signals:
 			break loop
 		}

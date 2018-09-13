@@ -1,18 +1,21 @@
 package main
 
 import (
+	"fmt"
 	"log"
 )
 
-type user struct {
+type feedUser struct {
 	userID string
 }
 
-func (u *user) Post(text string) {
+func (u *feedUser) Post(text string) int32 {
+	var postID int32
+
 	tx, err := mysqlDB.Begin()
 	if err != nil {
 		log.Println(err)
-		return
+		return postID
 	}
 	defer func() {
 		if err != nil {
@@ -22,48 +25,56 @@ func (u *user) Post(text string) {
 		}
 	}()
 
-	result, err := tx.Exec("insert into post(text,date,stars,comments)  values(?,now(),0,0)", text)
+	row, err := tx.Query("select postIDincr from user where userID=?", u.userID)
 	if err != nil {
 		log.Println(err)
-		return
+		return -1
+	}
+	defer row.Close()
+
+	for row.Next() {
+		row.Scan(&postID)
+	}
+
+	result, err := tx.Exec("insert into post(text,date,stars,comments,userID,postID)  values(?,now(),0,0,?,?)", text, u.userID, postID)
+	if err != nil {
+		log.Println(err)
+		return -1
 	}
 
 	id, err := result.LastInsertId()
 	if err != nil {
 		log.Println(err)
-		return
+		return -1
 	}
 
 	log.Println(u.userID, "post :", text, " PostID:", id)
 
-	row, err := tx.Query("select post from user where userID=?", u.userID)
+	_, err = tx.Exec("update user set postIDincr=postIDincr+1 where userID=?", u.userID)
+	if err != nil {
+		log.Println(err)
+		return -1
+	}
+
+	return postID
+}
+
+func (u *feedUser) Delete(postID uint32) {
+	_, err := mysqlDB.Exec("delete from post where userID=? and postID=?", u.userID, postID)
 	if err != nil {
 		log.Println(err)
 		return
 	}
-	defer row.Close()
-
-	postIDs := make([]uint32, 0)
-	for row.Next() {
-		row.Scan(&postIDs)
-	}
-
-	postIDs = append(postIDs, uint32(id))
-
-	_, err = tx.Exec("update user set post=? where userID=?", postIDs, u.userID)
-	if err != nil {
-		log.Println(err)
-	}
 }
 
-func (u *user) Delete(textID uint32) {
+func (u *feedUser) Watch(userID string) {
 
 }
 
-func (u *user) Watch(userID string) {
+func (u *feedUser) UnWatch(userID string) {
 
 }
 
-func (u *user) UnWatch(userID string) {
-
+func (u *feedUser) MakePostMessage(postID int32) string {
+	return fmt.Sprintf("POST:%s:%d", u.userID, postID)
 }

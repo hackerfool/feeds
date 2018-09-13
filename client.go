@@ -36,6 +36,9 @@ var upgrader = websocket.Upgrader{
 
 // Client is a middleman between the websocket connection and the hub.
 type Client struct {
+	//feed user
+	feedUser
+
 	hub *Hub
 
 	// The websocket connection.
@@ -67,10 +70,14 @@ func (c *Client) readPump() {
 			break
 		}
 		message = bytes.TrimSpace(bytes.Replace(message, newline, space, -1))
-		// c.hub.broadcast <- message
-		producer.Input() <- &kafka.ProducerMessage{
-			Topic: topicKey,
-			Value: kafka.ByteEncoder(message),
+		text := string(message)
+		postID := c.Post(text)
+		if postID != -1 {
+			// c.hub.broadcast <- message
+			producer.Input() <- &kafka.ProducerMessage{
+				Topic: topicKey,
+				Value: kafka.ByteEncoder(c.MakePostMessage(postID)),
+			}
 		}
 	}
 }
@@ -123,12 +130,14 @@ func (c *Client) writePump() {
 
 // serveWs handles websocket requests from the peer.
 func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println(err)
 		return
 	}
 	client := &Client{hub: hub, conn: conn, send: make(chan []byte, 256)}
+	client.userID = r.Form["name"][0]
 	client.hub.register <- client
 
 	// Allow collection of memory referenced by the caller by doing all work in
