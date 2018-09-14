@@ -67,12 +67,20 @@ func (u *feedUser) Delete(postID uint32) {
 	}
 }
 
-func (u *feedUser) Watch(userID string) {
-
+func (u *feedUser) Watch(watchID string) {
+	_, err := mysqlDB.Exec("insert into watch(userID,watchID,watchDate) values(?,?,now())", u.userID, watchID)
+	if err != nil {
+		log.Println(err)
+		return
+	}
 }
 
-func (u *feedUser) UnWatch(userID string) {
-
+func (u *feedUser) UnWatch(watchID string) {
+	_, err := mysqlDB.Exec("delete from watch where userID=? and watchID=?", u.userID, watchID)
+	if err != nil {
+		log.Println(err)
+		return
+	}
 }
 
 func (u *feedUser) MakePostMessage(postID int32) string {
