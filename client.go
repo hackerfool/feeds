@@ -3,8 +3,9 @@ package main
 import (
 	"bytes"
 	"log"
-	"net/http"
 	"time"
+
+	"github.com/gin-gonic/gin"
 
 	kafka "github.com/Shopify/sarama"
 	"github.com/gorilla/websocket"
@@ -129,15 +130,31 @@ func (c *Client) writePump() {
 }
 
 // serveWs handles websocket requests from the peer.
-func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
-	r.ParseForm()
-	conn, err := upgrader.Upgrade(w, r, nil)
+// func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
+// 	r.ParseForm()
+// 	conn, err := upgrader.Upgrade(w, r, nil)
+// 	if err != nil {
+// 		log.Println(err)
+// 		return
+// 	}
+// 	client := &Client{hub: hub, conn: conn, send: make(chan []byte, 256)}
+// 	client.userID = r.Form["name"][0]
+// 	client.hub.register <- client
+
+// 	// Allow collection of memory referenced by the caller by doing all work in
+// 	// new goroutines.
+// 	go client.writePump()
+// 	go client.readPump()
+// }
+
+func serveWs(ct *gin.Context) {
+	conn, err := upgrader.Upgrade(ct.Writer, ct.Request, nil)
 	if err != nil {
 		log.Println(err)
 		return
 	}
 	client := &Client{hub: hub, conn: conn, send: make(chan []byte, 256)}
-	client.userID = r.Form["name"][0]
+	client.userID = ct.Query("name")
 	client.hub.register <- client
 
 	// Allow collection of memory referenced by the caller by doing all work in

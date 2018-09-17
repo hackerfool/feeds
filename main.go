@@ -3,11 +3,11 @@ package main
 import (
 	"database/sql"
 	"flag"
-	"log"
-	"net/http"
 	"os"
 	"os/signal"
 	"time"
+
+	"github.com/gin-gonic/gin"
 
 	kafka "github.com/Shopify/sarama"
 	_ "github.com/go-sql-driver/mysql"
@@ -37,34 +37,55 @@ var (
 	mysqlDB   *sql.DB
 )
 
-func serveHome(w http.ResponseWriter, r *http.Request) {
-	log.Println(r.URL)
-	if r.URL.Path != "/" {
-		http.Error(w, "Not found", http.StatusNotFound)
-		return
-	}
-	if r.Method != "GET" {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	http.ServeFile(w, r, "home.html")
-}
+var (
+	g = gin.Default()
+)
+
+// func serveHome(w http.ResponseWriter, r *http.Request) {
+// 	log.Println(r.URL)
+// 	if r.URL.Path != "/" {
+// 		http.Error(w, "Not found", http.StatusNotFound)
+// 		return
+// 	}
+// 	if r.Method != "GET" {
+// 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+// 		return
+// 	}
+// 	http.ServeFile(w, r, "home.html")
+// }
 
 func wsServer() {
 	go hub.run()
-	http.HandleFunc("/", serveHome)
-	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
-		serveWs(hub, w, r)
-	})
-	err := http.ListenAndServe(*addr, nil)
+	// http.HandleFunc("/", serveHome)
+	// http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
+	// 	serveWs(hub, w, r)
+	// })
+	// err := http.ListenAndServe(*addr, nil)
+	// if err != nil {
+	// 	log.Fatal("ListenAndServe: ", err)
+	// }
+	g.StaticFile("/", "home.html")
+	g.GET("/ws", serveWs)
+	// g.GET("/ws", serveWs)
+
+	err := g.Run(*addr)
 	if err != nil {
-		log.Fatal("ListenAndServe: ", err)
+		panic(err)
+	}
+}
+
+func apiServer() {
+	v1 := g.Group("/v1")
+	if v1 != nil {
+		v1.POST("/sign", userSign)
+		v1.POST("/login", userLogin)
 	}
 }
 
 func main() {
 	flag.Parse()
 	go wsServer()
+	go apiServer()
 
 	//init mysql con
 	mysqlDB, err = sql.Open("mysql", mysqlHost)
