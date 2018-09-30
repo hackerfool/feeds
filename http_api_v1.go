@@ -18,7 +18,7 @@ var (
 func vaildLogin(ct *gin.Context) {
 	auth, err := ct.Cookie("auth")
 	if err != nil {
-		ct.AbortWithStatus(http.StatusBadGateway)
+		ct.Redirect(http.StatusFound, "/web/login.html")
 		return
 	}
 
@@ -26,7 +26,8 @@ func vaildLogin(ct *gin.Context) {
 		return
 	}
 
-	ct.AbortWithStatus(http.StatusBadRequest)
+	ct.Redirect(http.StatusFound, "/web/login.html")
+	ct.Abort()
 	return
 }
 
@@ -42,6 +43,8 @@ func userLogin(ct *gin.Context) {
 
 	ct.SetCookie("auth", auth, 3600, "", "", false, false)
 	ct.String(http.StatusOK, "ok")
+
+	return
 }
 
 func userSign(ct *gin.Context) {
@@ -51,7 +54,8 @@ func userSign(ct *gin.Context) {
 		return
 	}
 
-	_, sqlerr := mysqlDB.Exec("insert into user(userID,createDate) values(?,now())", name)
+	user := makeFeedUser(name)
+	sqlerr := user.New()
 	if sqlerr != nil {
 		ct.AbortWithError(http.StatusBadGateway, sqlerr)
 		return
@@ -126,6 +130,8 @@ func userFollow(ct *gin.Context) {
 		}
 		ct.String(http.StatusOK, "ok")
 	}
+
+	return
 }
 
 func userFans(ct *gin.Context) {
@@ -162,4 +168,39 @@ func userFans(ct *gin.Context) {
 	ct.JSON(http.StatusOK, gin.H{
 		"fansID": fansID,
 	})
+	return
+}
+
+func userPost(ct *gin.Context) {
+	var (
+		text     string
+		userName string
+		ok       bool
+	)
+	auth, err := ct.Cookie("auth")
+	if err != nil {
+		ct.AbortWithStatus(http.StatusBadGateway)
+		return
+	}
+
+	if userName, ok = loginUser[auth]; !ok {
+		ct.AbortWithStatus(http.StatusBadGateway)
+		return
+	}
+	text, ok = ct.GetPostForm("post")
+	if !ok {
+		ct.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+
+	user := makeFeedUser(userName)
+	if user.Post(text) < 0 {
+		log.Println(err)
+		ct.AbortWithStatus(http.StatusBadGateway)
+		return
+	}
+
+	ct.String(http.StatusOK, "ok")
+
+	return
 }

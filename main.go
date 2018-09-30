@@ -44,7 +44,9 @@ var (
 func httpServer() {
 	{
 		go hub.run()
-		g.StaticFile("/", "home.html")
+		// g.StaticFile("/", "web/home.html")
+		g.StaticFile("/", "web/index.html")
+		g.StaticFile("/web/login.html", "web/login.html")
 		g.GET("/ws", serveWs)
 	}
 
@@ -54,6 +56,7 @@ func httpServer() {
 		v1.GET("/login", userLogin)
 		v1.GET("/follow", vaildLogin, userFollow)
 		v1.GET("/fans", vaildLogin, userFans)
+		v1.POST("/post", vaildLogin, userPost)
 	}
 
 	err := g.Run(*addr)

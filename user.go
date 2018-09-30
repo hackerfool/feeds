@@ -9,6 +9,15 @@ type feedUser struct {
 	userID string
 }
 
+func makeFeedUser(name string) *feedUser {
+	return &feedUser{userID: name}
+}
+
+func (u *feedUser) New() error {
+	_, sqlerr := mysqlDB.Exec("insert into user(userID,createDate) values(?,now())", u.userID)
+	return sqlerr
+}
+
 func (u *feedUser) Post(text string) int32 {
 	var postID int32
 
